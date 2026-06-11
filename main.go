@@ -36,7 +36,7 @@ const (
 	MaxRetries         = 5
 	InitialBackoff     = 500 * time.Millisecond
 	RequestsPerSec     = 200 // quota is 250 QPS; stay under with margin
-	cacheFile          = "counts-cache.json"
+	cacheFile          = "senders-cache.json"
 )
 
 type SenderCount struct {

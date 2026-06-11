@@ -135,7 +135,7 @@ The token is saved to `token.json` and reused on subsequent runs — you won't b
 | `-query` | _(none)_ | Gmail search query to filter messages (e.g. `in:inbox`, `after:2024/01/01`) |
 | `-cache` | `false` | Cache the raw sender counts locally and reuse them on subsequent runs if fresh |
 | `-cache-ttl` | `1h` | How long a cache file is considered fresh (e.g. `30m`, `2h`); implies `-cache` |
-| `-cache-file` | `counts-cache.json` | Path to the cache file; implies `-cache` |
+| `-cache-file` | `senders-cache.json` | Path to the cache file; implies `-cache` |
 | `-qps` | `200` | Maximum Gmail API requests per second (hard quota is 250 QPS) |
 | `-sort-by` | `count` | Sort results by `count` (number of emails) or `size` (total space used) |
 
@@ -160,7 +160,7 @@ The token is saved to `token.json` and reused on subsequent runs — you won't b
 ./gmail-topsenders -cache -min 5
 ```
 
-The cache stores the full sender counts (not just the filtered view), so you can freely change `-top`, `-min`, or `-sort-by` between cached runs. The `-query` value is recorded in the cache — if it changes between runs the cache is automatically invalidated, preventing stale results. The cache is written only on clean completion — an interrupted run does not overwrite a valid cache. The default cache file (`counts-cache.json`) is excluded from version control by `.gitignore`.
+The cache stores the full sender counts (not just the filtered view), so you can freely change `-top`, `-min`, or `-sort-by` between cached runs. The `-query` value is recorded in the cache — if it changes between runs the cache is automatically invalidated, preventing stale results. The cache is written only on clean completion — an interrupted run does not overwrite a valid cache. The default cache file (`senders-cache.json`) is excluded from version control by `.gitignore`.
 
 The JSON file contains an array of `{"sender": "...", "count": N}` objects sorted by count descending, mirroring what is printed to stdout.
 
@@ -172,7 +172,7 @@ You can interrupt the scan at any time with `Ctrl+C`; partial results are printe
 |------|-------------|
 | `credentials.json` | OAuth 2.0 client credentials — download from GCP Console. |
 | `token.json` | Cached OAuth token — created automatically on first run. |
-| `counts-cache.json` | Sender counts cache — created when `-cache` is used. Path overridable via `-cache-file`. |
+| `senders-cache.json` | Sender counts cache — created when `-cache` is used. Path overridable via `-cache-file`. |
 
 ## Development
 
