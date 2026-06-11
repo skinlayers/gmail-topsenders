@@ -54,6 +54,7 @@ func main() {
 	cacheTTL := flag.Duration("cache-ttl", time.Hour, "how long a cache file is considered fresh (e.g. 1h, 30m)")
 	cacheFilePath := flag.String("cache-file", cacheFile, "path to the cache file")
 	qps := flag.Int("qps", RequestsPerSec, "maximum Gmail API requests per second (quota is 250 QPS)")
+	query := flag.String("query", "", "Gmail search query to filter messages (e.g. \"in:inbox\", \"after:2024/01/01\")")
 	flag.Parse()
 
 	// Implicitly enable cache if cache-related flags were explicitly set.
@@ -106,6 +107,9 @@ func main() {
 		pageToken := ""
 		for {
 			req := srv.Users.Messages.List(user).Fields("nextPageToken", "messages(id)")
+			if *query != "" {
+				req = req.Q(*query)
+			}
 			if pageToken != "" {
 				req.PageToken(pageToken)
 			}
