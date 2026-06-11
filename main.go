@@ -361,8 +361,13 @@ func autoOAuthFlow(config *oauth2.Config) (*oauth2.Token, bool) {
 	c := *config
 	c.RedirectURL = fmt.Sprintf("http://localhost:%d", port)
 
+	state := randomState()
 	codeCh := make(chan string, 1)
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != state {
+			http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+			return
+		}
 		code := r.URL.Query().Get("code")
 		if code == "" {
 			http.Error(w, "Missing code parameter", http.StatusBadRequest)
@@ -378,7 +383,7 @@ func autoOAuthFlow(config *oauth2.Config) (*oauth2.Token, bool) {
 		}
 	}()
 
-	authURL := c.AuthCodeURL(randomState(), oauth2.AccessTypeOffline)
+	authURL := c.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	if err := openBrowser(authURL); err != nil {
 		return nil, false
 	}
@@ -398,7 +403,8 @@ func autoOAuthFlow(config *oauth2.Config) (*oauth2.Token, bool) {
 }
 
 func manualOAuthFlow(config *oauth2.Config) *oauth2.Token {
-	authURL := config.AuthCodeURL(randomState(), oauth2.AccessTypeOffline)
+	state := randomState()
+	authURL := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	fmt.Printf("Open this URL in your browser:\n\n%v\n\n", authURL)
 	fmt.Println("After granting access, your browser will redirect to a page that won't load.")
 	fmt.Println("Paste the full URL from your browser's address bar and press Enter:")
@@ -410,6 +416,9 @@ func manualOAuthFlow(config *oauth2.Config) *oauth2.Token {
 
 	authCode := input
 	if u, err := url.Parse(input); err == nil {
+		if returnedState := u.Query().Get("state"); returnedState != "" && returnedState != state {
+			log.Fatalf("OAuth state mismatch — possible CSRF attack, aborting")
+		}
 		if code := u.Query().Get("code"); code != "" {
 			authCode = code
 		}
