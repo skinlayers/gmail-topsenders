@@ -107,9 +107,9 @@ func TestCacheRoundTrip(t *testing.T) {
 
 	counts := map[string]int{"a@example.com": 10, "b@example.com": 5}
 	sizes := map[string]int64{"a@example.com": 2048, "b@example.com": 512}
-	saveCache(f.Name(), counts, sizes)
+	saveCache(f.Name(), "in:inbox", counts, sizes)
 
-	c, ok := loadCache(f.Name(), time.Hour)
+	c, ok := loadCache(f.Name(), time.Hour, "in:inbox")
 	if !ok {
 		t.Fatal("expected cache to load successfully")
 	}
@@ -143,14 +143,32 @@ func TestCacheTTLExpired(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, ok := loadCache(f.Name(), time.Hour)
+	_, ok := loadCache(f.Name(), time.Hour, "")
 	if ok {
 		t.Error("expected expired cache to return false")
 	}
 }
 
+func TestCacheQueryMismatch(t *testing.T) {
+	f, err := os.CreateTemp("", "cache-*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name()) //nolint:errcheck
+
+	saveCache(f.Name(), "in:inbox", map[string]int{"a@example.com": 1}, map[string]int64{})
+
+	_, ok := loadCache(f.Name(), time.Hour, "after:2024/01/01")
+	if ok {
+		t.Error("expected cache to be invalidated when query changes")
+	}
+}
+
 func TestCacheMissingFile(t *testing.T) {
-	_, ok := loadCache("/nonexistent/path/cache.json", time.Hour)
+	_, ok := loadCache("/nonexistent/path/cache.json", time.Hour, "")
 	if ok {
 		t.Error("expected missing file to return false")
 	}
@@ -171,7 +189,7 @@ func TestCacheCorruptFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, ok := loadCache(name, time.Hour)
+	_, ok := loadCache(name, time.Hour, "")
 	if ok {
 		t.Error("expected corrupt file to return false")
 	}

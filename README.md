@@ -160,7 +160,7 @@ The token is saved to `token.json` and reused on subsequent runs — you won't b
 ./gmail-topsenders -cache -min 5
 ```
 
-The cache stores the full sender counts (not just the filtered view), so you can freely change `-top` or `-min` between cached runs. It is written only on clean completion — an interrupted run does not overwrite a valid cache. The default cache file (`counts-cache.json`) is excluded from version control by `.gitignore`.
+The cache stores the full sender counts (not just the filtered view), so you can freely change `-top`, `-min`, or `-sort-by` between cached runs. The `-query` value is recorded in the cache — if it changes between runs the cache is automatically invalidated, preventing stale results. The cache is written only on clean completion — an interrupted run does not overwrite a valid cache. The default cache file (`counts-cache.json`) is excluded from version control by `.gitignore`.
 
 The JSON file contains an array of `{"sender": "...", "count": N}` objects sorted by count descending, mirroring what is printed to stdout.
 

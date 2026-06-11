@@ -47,6 +47,7 @@ type SenderCount struct {
 
 type cache struct {
 	CreatedAt time.Time        `json:"created_at"`
+	Query     string           `json:"query"`
 	Counts    map[string]int   `json:"counts"`
 	Sizes     map[string]int64 `json:"sizes,omitempty"`
 }
@@ -90,7 +91,7 @@ func main() {
 	var n, total int64
 
 	if *useCache {
-		if c, ok := loadCache(*cacheFilePath, *cacheTTL); ok {
+		if c, ok := loadCache(*cacheFilePath, *cacheTTL, *query); ok {
 			counts = c.Counts
 			if c.Sizes != nil {
 				sizes = c.Sizes
@@ -246,7 +247,7 @@ func main() {
 		n = processed.Load()
 
 		if *useCache && ctx.Err() == nil {
-			saveCache(*cacheFilePath, counts, sizes)
+			saveCache(*cacheFilePath, *query, counts, sizes)
 		}
 	}
 
@@ -517,7 +518,7 @@ func saveToken(path string, token *oauth2.Token) {
 	}
 }
 
-func loadCache(path string, ttl time.Duration) (cache, bool) {
+func loadCache(path string, ttl time.Duration, query string) (cache, bool) {
 	f, err := os.Open(path)
 	if err != nil {
 		return cache{}, false
@@ -530,10 +531,13 @@ func loadCache(path string, ttl time.Duration) (cache, bool) {
 	if time.Since(c.CreatedAt) > ttl {
 		return cache{}, false
 	}
+	if c.Query != query {
+		return cache{}, false
+	}
 	return c, true
 }
 
-func saveCache(path string, counts map[string]int, sizes map[string]int64) {
+func saveCache(path string, query string, counts map[string]int, sizes map[string]int64) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		log.Printf("Unable to write cache: %v", err)
@@ -544,7 +548,7 @@ func saveCache(path string, counts map[string]int, sizes map[string]int64) {
 			log.Printf("Unable to close cache file: %v", err)
 		}
 	}()
-	if err := json.NewEncoder(f).Encode(cache{CreatedAt: time.Now(), Counts: counts, Sizes: sizes}); err != nil {
+	if err := json.NewEncoder(f).Encode(cache{CreatedAt: time.Now(), Query: query, Counts: counts, Sizes: sizes}); err != nil {
 		log.Printf("Unable to write cache: %v", err)
 	}
 }
