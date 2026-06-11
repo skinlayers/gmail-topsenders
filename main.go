@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"regexp"
@@ -334,16 +335,26 @@ func randomState() string {
 
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 	authURL := config.AuthCodeURL(randomState(), oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the authorization code: \n%v\n", authURL)
+	fmt.Printf("Open this URL in your browser:\n\n%v\n\n", authURL)
+	fmt.Println("After granting access, your browser will redirect to a page that won't load.")
+	fmt.Println("Paste the full URL from your browser's address bar and press Enter:")
 
-	var authCode string
-	if _, err := fmt.Scan(&authCode); err != nil {
-		log.Fatalf("Unable to read authorization code %v", err)
+	var input string
+	if _, err := fmt.Scan(&input); err != nil {
+		log.Fatalf("Unable to read input: %v", err)
+	}
+
+	// Accept either the full redirect URL or just the code.
+	authCode := input
+	if u, err := url.Parse(input); err == nil {
+		if code := u.Query().Get("code"); code != "" {
+			authCode = code
+		}
 	}
 
 	tok, err := config.Exchange(context.Background(), authCode)
 	if err != nil {
-		log.Fatalf("Unable to retrieve token from web %v", err)
+		log.Fatalf("Unable to retrieve token: %v", err)
 	}
 	return tok
 }
