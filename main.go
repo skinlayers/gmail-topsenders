@@ -68,6 +68,7 @@ func main() {
 	qps := flag.Int("qps", RequestsPerSec, "maximum Gmail API requests per second (quota is 250 QPS)")
 	query := flag.String("query", "", "Gmail search query to filter messages (e.g. \"in:inbox\", \"after:2024/01/01\")")
 	sortBy := flag.String("sort-by", "count", "sort results by: count or size")
+	tokenFile := flag.String("token-file", "token.json", "path to the cached OAuth token file")
 	flag.Parse()
 
 	if *sortBy != "count" && *sortBy != "size" {
@@ -113,7 +114,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Unable to parse client secret file to config: %v", err)
 		}
-		client := getClient(config)
+		client := getClient(config, *tokenFile)
 
 		srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
 		if err != nil {
@@ -438,8 +439,7 @@ func cleanSender(raw string) string {
 	return strings.ToLower(raw)
 }
 
-func getClient(config *oauth2.Config) *http.Client {
-	tokFile := "token.json"
+func getClient(config *oauth2.Config, tokFile string) *http.Client {
 	tok, err := tokenFromFile(tokFile)
 	if err != nil {
 		tok = getTokenFromWeb(config)

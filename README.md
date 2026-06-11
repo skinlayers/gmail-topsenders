@@ -140,6 +140,7 @@ The token is saved to `token.json` and reused on subsequent runs — you won't b
 | `-cache-file` | `senders-cache.json` | Path to the cache file; implies `-cache` |
 | `-qps` | `200` | Maximum Gmail API requests per second (hard quota is 250 QPS) |
 | `-sort-by` | `count` | Sort results by `count` (number of emails) or `size` (total space used) |
+| `-token-file` | `token.json` | Path to the cached OAuth token file |
 
 ```bash
 # Show the top 100 senders
@@ -173,7 +174,7 @@ You can interrupt the scan at any time with `Ctrl+C`; partial results are printe
 | File | Description |
 |------|-------------|
 | `credentials.json` | OAuth 2.0 client credentials — download from GCP Console. |
-| `token.json` | Cached OAuth token — created automatically on first run. |
+| `token.json` | Cached OAuth token — created automatically on first run. Path overridable via `-token-file`. |
 | `senders-cache.json` | Sender counts cache — created when `-cache` is used. Path overridable via `-cache-file`. |
 
 ## Development
