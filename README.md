@@ -3,12 +3,12 @@
 Scans your entire Gmail account and reports which email addresses have sent you the most messages. Useful for identifying newsletters, notification senders, or contacts to unsubscribe from — and for spotting bulk senders whose emails you can select and delete in one go to reclaim inbox space.
 
 ```
---- TOP 50 SENDERS (84312 messages) ---
-#  Sender                          Emails    %      Size       %
--  ------------------------------  ------  -----  --------  -----
-1  noreply@github.com               4821   5.7%  142.3 MB  18.2%
-2  notifications@slack.com          3204   3.8%   89.1 MB  11.4%
-3  no-reply@accounts.google.com     1847   2.2%   12.4 MB   1.6%
+              TOP 50 SENDERS (84312 messages)
+#  Sender                          Emails  Email %      Size  Size %
+-  ------------------------------  ------  -------  --------  ------
+1  noreply@github.com               4821     5.7%  142.3 MB   18.2%
+2  notifications@slack.com          3204     3.8%   89.1 MB   11.4%
+3  no-reply@accounts.google.com     1847     2.2%   12.4 MB    1.6%
 ...
 Completed in 4m32s
 ```

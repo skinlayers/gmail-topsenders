@@ -259,22 +259,16 @@ func main() {
 	if *sortBy == "size" {
 		sortLabel = " BY SIZE"
 	}
-	if ctx.Err() != nil {
-		fmt.Printf("\nInterrupted after %d/%d messages. Partial results:\n", n, total)
-	} else if *minCount > 0 {
-		fmt.Printf("\n--- SENDERS WITH >=%d EMAILS%s (%d messages) ---\n", *minCount, sortLabel, n)
-	} else {
-		fmt.Printf("\n--- TOP %d SENDERS%s (%d messages) ---\n", *top, sortLabel, n)
-	}
 
 	var totalSize int64
 	for _, sc := range sortedCounts {
 		totalSize += sc.Size
 	}
 
+	// Pre-render rows and compute column widths (seeded with header label widths).
 	type row struct{ rank, sender, count, countPct, size, sizePct string }
 	rows := make([]row, len(displayed))
-	wRank, wSender, wCount, wCountPct, wSize, wSizePct := 1, len("Sender"), len("Emails"), 1, len("Size"), 1
+	wRank, wSender, wCount, wCountPct, wSize, wSizePct := 1, len("Sender"), len("Emails"), len("Email %"), len("Size"), len("Size %")
 	for i, sc := range displayed {
 		sizePct := "N/A"
 		if totalSize > 0 {
@@ -308,6 +302,20 @@ func main() {
 			wSizePct = len(r.sizePct)
 		}
 	}
+
+	tableWidth := wRank + 2 + wSender + 2 + wCount + 2 + wCountPct + 2 + wSize + 2 + wSizePct
+
+	var banner string
+	if ctx.Err() != nil {
+		banner = fmt.Sprintf("INTERRUPTED — partial results (%d/%d messages)", n, total)
+	} else if *minCount > 0 {
+		banner = fmt.Sprintf("SENDERS WITH >=%d EMAILS%s (%d messages)", *minCount, sortLabel, n)
+	} else {
+		banner = fmt.Sprintf("TOP %d SENDERS%s (%d messages)", *top, sortLabel, n)
+	}
+	pad := max((tableWidth-len(banner))/2, 0)
+	fmt.Printf("\n%s%s\n", strings.Repeat(" ", pad), banner)
+
 	sep := strings.Repeat("-", wRank) + "  " + strings.Repeat("-", wSender) + "  " +
 		strings.Repeat("-", wCount) + "  " + strings.Repeat("-", wCountPct) + "  " +
 		strings.Repeat("-", wSize) + "  " + strings.Repeat("-", wSizePct)
@@ -315,9 +323,9 @@ func main() {
 		wRank, "#",
 		wSender, "Sender",
 		wCount, "Emails",
-		wCountPct, "%",
+		wCountPct, "Email %",
 		wSize, "Size",
-		wSizePct, "%",
+		wSizePct, "Size %",
 	)
 	fmt.Println(sep)
 	for _, r := range rows {
