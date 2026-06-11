@@ -1,4 +1,4 @@
-name: Lint
+name: CI
 
 on:
   push:
@@ -17,3 +17,14 @@ jobs:
           go-version-file: go.mod
 
       - uses: golangci/golangci-lint-action@v9.2.1
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: go.mod
+
+      - run: go test -race -count=1 -shuffle=on ./...

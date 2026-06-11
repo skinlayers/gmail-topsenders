@@ -234,14 +234,9 @@ func main() {
 	}
 
 	// 3. Sort and print results
-	var sortedCounts []SenderCount
-	for k, v := range counts {
-		sortedCounts = append(sortedCounts, SenderCount{Sender: k, Count: v})
-	}
+	sortedCounts := sortCounts(counts)
+	displayed := applyLimit(sortedCounts, *top, *minCount)
 
-	sort.Slice(sortedCounts, func(i, j int) bool {
-		return sortedCounts[i].Count > sortedCounts[j].Count
-	})
 	if ctx.Err() != nil {
 		fmt.Printf("\nInterrupted after %d/%d messages. Partial results:\n", n, total)
 	} else if *minCount > 0 {
@@ -249,29 +244,12 @@ func main() {
 	} else {
 		fmt.Printf("\n--- TOP %d SENDERS (%d messages) ---\n", *top, n)
 	}
-	for i, sc := range sortedCounts {
-		if *minCount > 0 {
-			if sc.Count < *minCount {
-				break
-			}
-		} else if i >= *top {
-			break
-		}
+	for i, sc := range displayed {
 		fmt.Printf("%d. %s: %d emails (%.1f%%)\n", i+1, sc.Sender, sc.Count, float64(sc.Count)/float64(n)*100)
 	}
 	fmt.Printf("Completed in %s\n", time.Since(start).Round(time.Second))
 
 	if *output != "" {
-		limit := min(len(sortedCounts), *top)
-		if *minCount > 0 {
-			limit = len(sortedCounts)
-			for i, sc := range sortedCounts {
-				if sc.Count < *minCount {
-					limit = i
-					break
-				}
-			}
-		}
 		f, err := os.OpenFile(*output, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			log.Fatalf("Unable to create output file: %v", err)
@@ -283,11 +261,37 @@ func main() {
 		}()
 		enc := json.NewEncoder(f)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(sortedCounts[:limit]); err != nil {
+		if err := enc.Encode(displayed); err != nil {
 			log.Fatalf("Unable to write JSON output: %v", err)
 		}
 		fmt.Printf("Results saved to %s\n", *output)
 	}
+}
+
+func sortCounts(counts map[string]int) []SenderCount {
+	result := make([]SenderCount, 0, len(counts))
+	for k, v := range counts {
+		result = append(result, SenderCount{Sender: k, Count: v})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Count > result[j].Count
+	})
+	return result
+}
+
+func applyLimit(sorted []SenderCount, top, minCount int) []SenderCount {
+	if minCount > 0 {
+		for i, sc := range sorted {
+			if sc.Count < minCount {
+				return sorted[:i]
+			}
+		}
+		return sorted
+	}
+	if top < len(sorted) {
+		return sorted[:top]
+	}
+	return sorted
 }
 
 // isRetryable returns true for transient errors (429, 5xx, network). Permanent

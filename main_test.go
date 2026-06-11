@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/oauth2"
 	"google.golang.org/api/googleapi"
 )
 
@@ -167,5 +168,119 @@ func TestCacheCorruptFile(t *testing.T) {
 	_, ok := loadCache(name, time.Hour)
 	if ok {
 		t.Error("expected corrupt file to return false")
+	}
+}
+
+func TestTokenRoundTrip(t *testing.T) {
+	f, err := os.CreateTemp("", "token-*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name()) //nolint:errcheck
+
+	tok := &oauth2.Token{AccessToken: "test-access-token", TokenType: "Bearer"}
+	saveToken(f.Name(), tok)
+
+	got, err := tokenFromFile(f.Name())
+	if err != nil {
+		t.Fatalf("tokenFromFile: %v", err)
+	}
+	if got.AccessToken != tok.AccessToken {
+		t.Errorf("AccessToken = %q, want %q", got.AccessToken, tok.AccessToken)
+	}
+	if got.TokenType != tok.TokenType {
+		t.Errorf("TokenType = %q, want %q", got.TokenType, tok.TokenType)
+	}
+}
+
+func TestTokenFromFileMissing(t *testing.T) {
+	_, err := tokenFromFile("/nonexistent/path/token.json")
+	if err == nil {
+		t.Error("expected error for missing token file")
+	}
+}
+
+func TestRandomState(t *testing.T) {
+	s := randomState()
+	if len(s) != 32 {
+		t.Errorf("randomState() length = %d, want 32", len(s))
+	}
+	if s2 := randomState(); s == s2 {
+		t.Error("randomState() returned identical values on consecutive calls")
+	}
+}
+
+func TestSortCounts(t *testing.T) {
+	counts := map[string]int{
+		"a@example.com": 5,
+		"b@example.com": 20,
+		"c@example.com": 10,
+	}
+	got := sortCounts(counts)
+	if len(got) != 3 {
+		t.Fatalf("len = %d, want 3", len(got))
+	}
+	if got[0].Count != 20 || got[1].Count != 10 || got[2].Count != 5 {
+		t.Errorf("unexpected order: %v", got)
+	}
+}
+
+func TestSortCountsEmpty(t *testing.T) {
+	got := sortCounts(map[string]int{})
+	if len(got) != 0 {
+		t.Errorf("expected empty slice, got %v", got)
+	}
+}
+
+func TestApplyLimitTop(t *testing.T) {
+	sorted := []SenderCount{
+		{Sender: "a@example.com", Count: 30},
+		{Sender: "b@example.com", Count: 20},
+		{Sender: "c@example.com", Count: 10},
+	}
+	got := applyLimit(sorted, 2, 0)
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	if got[0].Sender != "a@example.com" || got[1].Sender != "b@example.com" {
+		t.Errorf("unexpected result: %v", got)
+	}
+}
+
+func TestApplyLimitTopExceedsLength(t *testing.T) {
+	sorted := []SenderCount{
+		{Sender: "a@example.com", Count: 10},
+	}
+	got := applyLimit(sorted, 50, 0)
+	if len(got) != 1 {
+		t.Errorf("len = %d, want 1", len(got))
+	}
+}
+
+func TestApplyLimitMinCount(t *testing.T) {
+	sorted := []SenderCount{
+		{Sender: "a@example.com", Count: 30},
+		{Sender: "b@example.com", Count: 20},
+		{Sender: "c@example.com", Count: 5},
+	}
+	got := applyLimit(sorted, 50, 10)
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	if got[0].Sender != "a@example.com" || got[1].Sender != "b@example.com" {
+		t.Errorf("unexpected result: %v", got)
+	}
+}
+
+func TestApplyLimitMinCountNoneQualify(t *testing.T) {
+	sorted := []SenderCount{
+		{Sender: "a@example.com", Count: 3},
+	}
+	got := applyLimit(sorted, 50, 10)
+	if len(got) != 0 {
+		t.Errorf("expected empty slice, got %v", got)
 	}
 }
