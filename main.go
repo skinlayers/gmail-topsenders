@@ -266,8 +266,57 @@ func main() {
 	} else {
 		fmt.Printf("\n--- TOP %d SENDERS%s (%d messages) ---\n", *top, sortLabel, n)
 	}
+
+	var totalSize int64
+	for _, sc := range sortedCounts {
+		totalSize += sc.Size
+	}
+
+	type row struct{ rank, sender, count, countPct, size, sizePct string }
+	rows := make([]row, len(displayed))
+	wRank, wSender, wCount, wCountPct, wSize, wSizePct := 0, 0, 0, 0, 0, 0
 	for i, sc := range displayed {
-		fmt.Printf("%d. %s: %d emails (%.1f%%), %s\n", i+1, sc.Sender, sc.Count, float64(sc.Count)/float64(n)*100, formatSize(sc.Size))
+		sizePct := "N/A"
+		if totalSize > 0 {
+			sizePct = fmt.Sprintf("%.1f%%", float64(sc.Size)/float64(totalSize)*100)
+		}
+		r := row{
+			rank:     fmt.Sprintf("%d", i+1),
+			sender:   sc.Sender,
+			count:    fmt.Sprintf("%d", sc.Count),
+			countPct: fmt.Sprintf("%.1f%%", float64(sc.Count)/float64(n)*100),
+			size:     formatSize(sc.Size),
+			sizePct:  sizePct,
+		}
+		rows[i] = r
+		if len(r.rank) > wRank {
+			wRank = len(r.rank)
+		}
+		if len(r.sender) > wSender {
+			wSender = len(r.sender)
+		}
+		if len(r.count) > wCount {
+			wCount = len(r.count)
+		}
+		if len(r.countPct) > wCountPct {
+			wCountPct = len(r.countPct)
+		}
+		if len(r.size) > wSize {
+			wSize = len(r.size)
+		}
+		if len(r.sizePct) > wSizePct {
+			wSizePct = len(r.sizePct)
+		}
+	}
+	for _, r := range rows {
+		fmt.Printf("%*s  %-*s  %*s  %*s  %*s  %*s\n",
+			wRank, r.rank,
+			wSender, r.sender,
+			wCount, r.count,
+			wCountPct, r.countPct,
+			wSize, r.size,
+			wSizePct, r.sizePct,
+		)
 	}
 	fmt.Printf("Completed in %s\n", time.Since(start).Round(time.Second))
 
