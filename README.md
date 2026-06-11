@@ -13,7 +13,7 @@ Completed in 4m32s
 
 ## How it works
 
-The program connects to Gmail via Google's official API, fetches every message in your inbox, and counts how many times each sender appears. Results are sorted and printed to your terminal. It uses a pool of concurrent workers and stays within Gmail's API rate limits automatically.
+The program connects to Gmail via Google's official API and scans all mail in your account (not just the inbox — use `-query "in:inbox"` to limit the scope). It first fetches all message IDs, then retrieves only the `From` header and size estimate for each message — the full message body is never downloaded. Sender addresses are counted, sized, and sorted, then printed to your terminal. It uses a pool of concurrent workers and stays within Gmail's API rate limits automatically.
 
 On first run it walks you through a one-time login flow to grant the program read-only access to your Gmail. The resulting token is saved locally and reused on subsequent runs — you won't be asked to log in again.
 
