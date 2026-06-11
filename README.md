@@ -178,6 +178,9 @@ go test ./...
 
 # Run with verbose output
 go test -v ./...
+
+# Run linter (requires golangci-lint: https://golangci-lint.run/welcome/install/)
+golangci-lint run ./...
 ```
 
 ## Rate limits
