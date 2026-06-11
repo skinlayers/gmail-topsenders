@@ -192,6 +192,16 @@ golangci-lint run ./...
 
 ## Rate limits
 
-Gmail's API quota is 250 QPS per user. The program defaults to 200 QPS (override with `-qps`). Rate-limit (429) and other transient errors are retried up to 20 times with exponential backoff capped at ~32s per attempt — enough to weather any realistic API hiccup without skipping messages. Only permanent errors (e.g. a malformed message) are logged and skipped. Increasing `-workers` beyond ~10 is unlikely to speed things up since the bottleneck is the per-user quota, not local concurrency.
+Gmail's API quota is 250 QPS per user. The program defaults to 200 QPS (override with `-qps`). Rate-limit (429) and other transient errors are retried up to 20 times with exponential backoff capped at ~32s per attempt — enough to weather any realistic API hiccup without skipping messages. Only permanent errors (e.g. a malformed message) are logged and skipped.
 
-At 200 QPS, processing 50,000 messages takes roughly 4–5 minutes; 200,000 messages can take 15–20 minutes. Use `-query` to narrow the scan (e.g. `after:2024/01/01`) or `-cache` to avoid repeating it.
+In practice, throughput is limited by `workers × (1 / network latency)` rather than the API quota. At the default 4 workers and typical ~100ms latency, expect roughly 40 messages/second. Increasing `-workers` proportionally improves throughput until the per-user quota becomes the ceiling at around 20+ workers.
+
+With the default settings, expect roughly:
+
+| Messages | Time |
+|----------|------|
+| 50,000 | ~20 min |
+| 100,000 | ~40 min |
+| 200,000 | ~80 min |
+
+Use `-query` to narrow the scan (e.g. `after:2024/01/01`), `-workers` to speed it up, or `-cache` to avoid repeating it.
