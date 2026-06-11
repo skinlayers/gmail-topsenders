@@ -19,7 +19,7 @@ On first run it walks you through a one-time login flow to grant the program rea
 
 ## Prerequisites
 
-- [Go](https://go.dev/dl/) 1.26.3 or later — only needed if building from source; precompiled binaries are available (see [Build](#build))
+- [Go](https://go.dev/dl/) 1.26.3 or later — only needed if building from source; precompiled binaries are available (see [Installation](#installation))
 - A Google account — the same one whose Gmail you want to scan
 
 ## One-time Setup: Connecting to Gmail
@@ -87,7 +87,7 @@ Then finish up in the Cloud Console:
 
 ---
 
-## Build
+## Installation
 
 ### Precompiled releases *(easiest)*
 
@@ -152,7 +152,7 @@ On first run the program prints an authorization URL. Open it in a browser, sign
 ./gmail-topsenders -cache -min 5
 ```
 
-The cache stores the full sender counts (not just the filtered view), so you can freely change `-top` or `-min` between cached runs. It is written only on clean completion — an interrupted run does not overwrite a valid cache. The default cache file (`counts-cache.json`) is excluded from version control by `.gitignore`; if you use a custom path via `-cache-file`, make sure it is also excluded.
+The cache stores the full sender counts (not just the filtered view), so you can freely change `-top` or `-min` between cached runs. It is written only on clean completion — an interrupted run does not overwrite a valid cache. The default cache file (`counts-cache.json`) is excluded from version control by `.gitignore`.
 
 The JSON file contains an array of `{"sender": "...", "count": N}` objects sorted by count descending, mirroring what is printed to stdout.
 
