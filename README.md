@@ -20,11 +20,11 @@ On first run it prints an authorization URL, waits for you to paste back the cod
 ## Prerequisites
 
 - [Go](https://go.dev/dl/) 1.22 or later (go.mod requires 1.26.3)
-- A Google Cloud project with the Gmail API enabled and an OAuth 2.0 Desktop client configured (see below)
+- A Google account and a Google Cloud project (free — no credit card or billing account required)
 
 ## GCP OAuth 2.0 Setup
 
-You need a `credentials.json` file from a Google Cloud project. Choose one of the two methods below.
+You need a `credentials.json` file from a Google Cloud project. If you don't have a Google Cloud account, you can create one for free at [console.cloud.google.com](https://console.cloud.google.com) — no credit card is required to create a project or use the Gmail API. Choose one of the two methods below.
 
 ---
 
@@ -56,18 +56,14 @@ You need a `credentials.json` file from a Google Cloud project. Choose one of th
 ### Option B — gcloud CLI
 
 ```bash
-# Authenticate with an account that has Project Owner or Editor permissions
+# Authenticate with your Google account
 gcloud auth login
 
 # Create a new project (skip if you already have one)
 gcloud projects create my-gmail-topsenders --name="Gmail Top Senders"
 gcloud config set project my-gmail-topsenders
 
-# Link a billing account (required to enable APIs; free-tier usage applies)
-gcloud billing projects link my-gmail-topsenders \
-  --billing-account=$(gcloud billing accounts list --format='value(name)' --limit=1)
-
-# Enable the Gmail API
+# Enable the Gmail API (free, no billing account needed)
 gcloud services enable gmail.googleapis.com
 
 # Configure the OAuth consent screen (External type, Testing status)
