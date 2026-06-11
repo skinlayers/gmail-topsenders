@@ -106,7 +106,8 @@ func TestCacheRoundTrip(t *testing.T) {
 	defer os.Remove(f.Name()) //nolint:errcheck
 
 	counts := map[string]int{"a@example.com": 10, "b@example.com": 5}
-	saveCache(f.Name(), counts)
+	sizes := map[string]int64{"a@example.com": 2048, "b@example.com": 512}
+	saveCache(f.Name(), counts, sizes)
 
 	c, ok := loadCache(f.Name(), time.Hour)
 	if !ok {
@@ -115,6 +116,11 @@ func TestCacheRoundTrip(t *testing.T) {
 	for k, v := range counts {
 		if c.Counts[k] != v {
 			t.Errorf("counts[%q] = %d, want %d", k, c.Counts[k], v)
+		}
+	}
+	for k, v := range sizes {
+		if c.Sizes[k] != v {
+			t.Errorf("sizes[%q] = %d, want %d", k, c.Sizes[k], v)
 		}
 	}
 }
@@ -213,13 +219,13 @@ func TestRandomState(t *testing.T) {
 	}
 }
 
-func TestSortCounts(t *testing.T) {
+func TestSortCountsByCount(t *testing.T) {
 	counts := map[string]int{
 		"a@example.com": 5,
 		"b@example.com": 20,
 		"c@example.com": 10,
 	}
-	got := sortCounts(counts)
+	got := sortCounts(counts, map[string]int64{}, "count")
 	if len(got) != 3 {
 		t.Fatalf("len = %d, want 3", len(got))
 	}
@@ -228,10 +234,43 @@ func TestSortCounts(t *testing.T) {
 	}
 }
 
+func TestSortCountsBySize(t *testing.T) {
+	counts := map[string]int{"a@example.com": 5, "b@example.com": 20, "c@example.com": 10}
+	sizes := map[string]int64{"a@example.com": 9000, "b@example.com": 100, "c@example.com": 5000}
+	got := sortCounts(counts, sizes, "size")
+	if len(got) != 3 {
+		t.Fatalf("len = %d, want 3", len(got))
+	}
+	if got[0].Size != 9000 || got[1].Size != 5000 || got[2].Size != 100 {
+		t.Errorf("unexpected order: %v", got)
+	}
+}
+
 func TestSortCountsEmpty(t *testing.T) {
-	got := sortCounts(map[string]int{})
+	got := sortCounts(map[string]int{}, map[string]int64{}, "count")
 	if len(got) != 0 {
 		t.Errorf("expected empty slice, got %v", got)
+	}
+}
+
+func TestFormatSize(t *testing.T) {
+	tests := []struct {
+		input int64
+		want  string
+	}{
+		{500, "500 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1048576, "1.0 MB"},
+		{1572864, "1.5 MB"},
+		{1073741824, "1.0 GB"},
+		{1610612736, "1.5 GB"},
+	}
+	for _, tt := range tests {
+		got := formatSize(tt.input)
+		if got != tt.want {
+			t.Errorf("formatSize(%d) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }
 

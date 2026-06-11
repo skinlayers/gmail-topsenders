@@ -137,6 +137,7 @@ The token is saved to `token.json` and reused on subsequent runs — you won't b
 | `-cache-ttl` | `1h` | How long a cache file is considered fresh (e.g. `30m`, `2h`); implies `-cache` |
 | `-cache-file` | `counts-cache.json` | Path to the cache file; implies `-cache` |
 | `-qps` | `200` | Maximum Gmail API requests per second (hard quota is 250 QPS) |
+| `-sort-by` | `count` | Sort results by `count` (number of emails) or `size` (total space used) |
 
 ```bash
 # Show the top 100 senders
@@ -150,6 +151,9 @@ The token is saved to `token.json` and reused on subsequent runs — you won't b
 
 # Save results to a file
 ./gmail-topsenders -min 10 -output results.json
+
+# Sort by total space used instead of email count
+./gmail-topsenders -sort-by size
 
 # Cache results, then re-run instantly with a different threshold
 ./gmail-topsenders -cache -top 100

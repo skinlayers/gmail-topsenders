@@ -42,11 +42,18 @@ const (
 type SenderCount struct {
 	Sender string `json:"sender"`
 	Count  int    `json:"count"`
+	Size   int64  `json:"size"`
 }
 
 type cache struct {
-	CreatedAt time.Time      `json:"created_at"`
-	Counts    map[string]int `json:"counts"`
+	CreatedAt time.Time        `json:"created_at"`
+	Counts    map[string]int   `json:"counts"`
+	Sizes     map[string]int64 `json:"sizes,omitempty"`
+}
+
+type senderData struct {
+	sender string
+	size   int64
 }
 
 func main() {
@@ -59,7 +66,12 @@ func main() {
 	cacheFilePath := flag.String("cache-file", cacheFile, "path to the cache file")
 	qps := flag.Int("qps", RequestsPerSec, "maximum Gmail API requests per second (quota is 250 QPS)")
 	query := flag.String("query", "", "Gmail search query to filter messages (e.g. \"in:inbox\", \"after:2024/01/01\")")
+	sortBy := flag.String("sort-by", "count", "sort results by: count or size")
 	flag.Parse()
+
+	if *sortBy != "count" && *sortBy != "size" {
+		log.Fatalf("invalid -sort-by value %q: must be \"count\" or \"size\"", *sortBy)
+	}
 
 	// Implicitly enable cache if cache-related flags were explicitly set.
 	flag.Visit(func(f *flag.Flag) {
@@ -74,11 +86,15 @@ func main() {
 	defer stop()
 
 	counts := make(map[string]int)
+	sizes := make(map[string]int64)
 	var n, total int64
 
 	if *useCache {
 		if c, ok := loadCache(*cacheFilePath, *cacheTTL); ok {
 			counts = c.Counts
+			if c.Sizes != nil {
+				sizes = c.Sizes
+			}
 			for _, v := range counts {
 				n += int64(v)
 			}
@@ -147,7 +163,7 @@ func main() {
 		total = int64(len(messageIDs))
 		limiter := rate.NewLimiter(rate.Limit(*qps), *workers)
 		idChan := make(chan string, *workers*100)
-		senderChan := make(chan string, *workers*10)
+		senderChan := make(chan senderData, *workers*10)
 		var wg sync.WaitGroup
 		var processed atomic.Int64
 
@@ -197,7 +213,7 @@ func main() {
 					processed.Add(1)
 					for _, header := range msg.Payload.Headers {
 						if header.Name == "From" {
-							senderChan <- cleanSender(header.Value)
+							senderChan <- senderData{sender: cleanSender(header.Value), size: msg.SizeEstimate}
 							break
 						}
 					}
@@ -215,8 +231,9 @@ func main() {
 
 		doneAggregating := make(chan struct{})
 		go func() {
-			for sender := range senderChan {
-				counts[sender]++
+			for sd := range senderChan {
+				counts[sd.sender]++
+				sizes[sd.sender] += sd.size
 			}
 			close(doneAggregating)
 		}()
@@ -229,23 +246,27 @@ func main() {
 		n = processed.Load()
 
 		if *useCache && ctx.Err() == nil {
-			saveCache(*cacheFilePath, counts)
+			saveCache(*cacheFilePath, counts, sizes)
 		}
 	}
 
 	// 3. Sort and print results
-	sortedCounts := sortCounts(counts)
+	sortedCounts := sortCounts(counts, sizes, *sortBy)
 	displayed := applyLimit(sortedCounts, *top, *minCount)
 
+	sortLabel := ""
+	if *sortBy == "size" {
+		sortLabel = " BY SIZE"
+	}
 	if ctx.Err() != nil {
 		fmt.Printf("\nInterrupted after %d/%d messages. Partial results:\n", n, total)
 	} else if *minCount > 0 {
-		fmt.Printf("\n--- SENDERS WITH >=%d EMAILS (%d messages) ---\n", *minCount, n)
+		fmt.Printf("\n--- SENDERS WITH >=%d EMAILS%s (%d messages) ---\n", *minCount, sortLabel, n)
 	} else {
-		fmt.Printf("\n--- TOP %d SENDERS (%d messages) ---\n", *top, n)
+		fmt.Printf("\n--- TOP %d SENDERS%s (%d messages) ---\n", *top, sortLabel, n)
 	}
 	for i, sc := range displayed {
-		fmt.Printf("%d. %s: %d emails (%.1f%%)\n", i+1, sc.Sender, sc.Count, float64(sc.Count)/float64(n)*100)
+		fmt.Printf("%d. %s: %d emails (%.1f%%), %s\n", i+1, sc.Sender, sc.Count, float64(sc.Count)/float64(n)*100, formatSize(sc.Size))
 	}
 	fmt.Printf("Completed in %s\n", time.Since(start).Round(time.Second))
 
@@ -268,15 +289,36 @@ func main() {
 	}
 }
 
-func sortCounts(counts map[string]int) []SenderCount {
+func sortCounts(counts map[string]int, sizes map[string]int64, sortBy string) []SenderCount {
 	result := make([]SenderCount, 0, len(counts))
 	for k, v := range counts {
-		result = append(result, SenderCount{Sender: k, Count: v})
+		result = append(result, SenderCount{Sender: k, Count: v, Size: sizes[k]})
 	}
 	sort.Slice(result, func(i, j int) bool {
+		if sortBy == "size" {
+			return result[i].Size > result[j].Size
+		}
 		return result[i].Count > result[j].Count
 	})
 	return result
+}
+
+func formatSize(b int64) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+		gb = 1024 * mb
+	)
+	switch {
+	case b >= gb:
+		return fmt.Sprintf("%.1f GB", float64(b)/gb)
+	case b >= mb:
+		return fmt.Sprintf("%.1f MB", float64(b)/mb)
+	case b >= kb:
+		return fmt.Sprintf("%.1f KB", float64(b)/kb)
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
 }
 
 func applyLimit(sorted []SenderCount, top, minCount int) []SenderCount {
@@ -491,7 +533,7 @@ func loadCache(path string, ttl time.Duration) (cache, bool) {
 	return c, true
 }
 
-func saveCache(path string, counts map[string]int) {
+func saveCache(path string, counts map[string]int, sizes map[string]int64) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		log.Printf("Unable to write cache: %v", err)
@@ -502,7 +544,7 @@ func saveCache(path string, counts map[string]int) {
 			log.Printf("Unable to close cache file: %v", err)
 		}
 	}()
-	if err := json.NewEncoder(f).Encode(cache{CreatedAt: time.Now(), Counts: counts}); err != nil {
+	if err := json.NewEncoder(f).Encode(cache{CreatedAt: time.Now(), Counts: counts, Sizes: sizes}); err != nil {
 		log.Printf("Unable to write cache: %v", err)
 	}
 }
