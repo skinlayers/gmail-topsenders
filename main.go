@@ -56,6 +56,13 @@ func main() {
 	qps := flag.Int("qps", RequestsPerSec, "maximum Gmail API requests per second (quota is 250 QPS)")
 	flag.Parse()
 
+	// Implicitly enable cache if cache-related flags were explicitly set.
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "cache-ttl" || f.Name == "cache-file" {
+			*useCache = true
+		}
+	})
+
 	start := time.Now()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
