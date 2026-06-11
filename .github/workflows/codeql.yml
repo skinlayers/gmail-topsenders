@@ -1,0 +1,29 @@
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: '0 8 * * 1'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: go.mod
+
+      - uses: github/codeql-action/init@v4.36.2
+        with:
+          languages: go
+
+      - uses: github/codeql-action/autobuild@v4.36.2
+
+      - uses: github/codeql-action/analyze@v4.36.2
