@@ -274,7 +274,7 @@ func main() {
 
 	type row struct{ rank, sender, count, countPct, size, sizePct string }
 	rows := make([]row, len(displayed))
-	wRank, wSender, wCount, wCountPct, wSize, wSizePct := 0, 0, 0, 0, 0, 0
+	wRank, wSender, wCount, wCountPct, wSize, wSizePct := 1, len("Sender"), len("Emails"), 1, len("Size"), 1
 	for i, sc := range displayed {
 		sizePct := "N/A"
 		if totalSize > 0 {
@@ -308,6 +308,18 @@ func main() {
 			wSizePct = len(r.sizePct)
 		}
 	}
+	sep := strings.Repeat("-", wRank) + "  " + strings.Repeat("-", wSender) + "  " +
+		strings.Repeat("-", wCount) + "  " + strings.Repeat("-", wCountPct) + "  " +
+		strings.Repeat("-", wSize) + "  " + strings.Repeat("-", wSizePct)
+	fmt.Printf("%*s  %-*s  %*s  %*s  %*s  %*s\n",
+		wRank, "#",
+		wSender, "Sender",
+		wCount, "Emails",
+		wCountPct, "%",
+		wSize, "Size",
+		wSizePct, "%",
+	)
+	fmt.Println(sep)
 	for _, r := range rows {
 		fmt.Printf("%*s  %-*s  %*s  %*s  %*s  %*s\n",
 			wRank, r.rank,

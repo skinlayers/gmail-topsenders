@@ -4,9 +4,11 @@ Scans your entire Gmail account and reports which email addresses have sent you 
 
 ```
 --- TOP 50 SENDERS (84312 messages) ---
- 1  noreply@github.com              4821  5.7%  142.3 MB  18.2%
- 2  notifications@slack.com         3204  3.8%   89.1 MB  11.4%
- 3  no-reply@accounts.google.com    1847  2.2%   12.4 MB   1.6%
+#  Sender                          Emails    %      Size       %
+-  ------------------------------  ------  -----  --------  -----
+1  noreply@github.com               4821   5.7%  142.3 MB  18.2%
+2  notifications@slack.com          3204   3.8%   89.1 MB  11.4%
+3  no-reply@accounts.google.com     1847   2.2%   12.4 MB   1.6%
 ...
 Completed in 4m32s
 ```
