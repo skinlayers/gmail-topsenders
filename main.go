@@ -211,7 +211,7 @@ func main() {
 			}
 			close(idChan)
 		}(messageIDs)
-		messageIDs = nil
+		messageIDs = nil //nolint:ineffassign // free memory while workers run
 
 		doneAggregating := make(chan struct{})
 		go func() {
@@ -276,7 +276,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("Unable to create output file: %v", err)
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				log.Printf("Unable to close output file: %v", err)
+			}
+		}()
 		enc := json.NewEncoder(f)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(sortedCounts[:limit]); err != nil {
@@ -364,11 +368,15 @@ func autoOAuthFlow(config *oauth2.Config) (*oauth2.Token, bool) {
 			http.Error(w, "Missing code parameter", http.StatusBadRequest)
 			return
 		}
-		fmt.Fprintln(w, "<html><body><h2>Authorized! You can close this tab and return to the terminal.</h2></body></html>")
+		_, _ = fmt.Fprintln(w, "<html><body><h2>Authorized! You can close this tab and return to the terminal.</h2></body></html>")
 		codeCh <- code
 	})}
 	go srv.Serve(listener) //nolint:errcheck
-	defer srv.Close()
+	defer func() {
+		if err := srv.Close(); err != nil {
+			log.Printf("Unable to close OAuth HTTP server: %v", err)
+		}
+	}()
 
 	authURL := c.AuthCodeURL(randomState(), oauth2.AccessTypeOffline)
 	if err := openBrowser(authURL); err != nil {
@@ -432,7 +440,7 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 	tok := &oauth2.Token{}
 	err = json.NewDecoder(f).Decode(tok)
 	return tok, err
@@ -444,8 +452,14 @@ func saveToken(path string, token *oauth2.Token) {
 	if err != nil {
 		log.Fatalf("Unable to cache oauth token: %v", err)
 	}
-	defer f.Close()
-	json.NewEncoder(f).Encode(token)
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("Unable to close token file: %v", err)
+		}
+	}()
+	if err := json.NewEncoder(f).Encode(token); err != nil {
+		log.Fatalf("Unable to write token: %v", err)
+	}
 }
 
 func loadCache(path string, ttl time.Duration) (cache, bool) {
@@ -453,7 +467,7 @@ func loadCache(path string, ttl time.Duration) (cache, bool) {
 	if err != nil {
 		return cache{}, false
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 	var c cache
 	if err := json.NewDecoder(f).Decode(&c); err != nil {
 		return cache{}, false
@@ -470,6 +484,12 @@ func saveCache(path string, counts map[string]int) {
 		log.Printf("Unable to write cache: %v", err)
 		return
 	}
-	defer f.Close()
-	json.NewEncoder(f).Encode(cache{CreatedAt: time.Now(), Counts: counts})
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("Unable to close cache file: %v", err)
+		}
+	}()
+	if err := json.NewEncoder(f).Encode(cache{CreatedAt: time.Now(), Counts: counts}); err != nil {
+		log.Printf("Unable to write cache: %v", err)
+	}
 }
