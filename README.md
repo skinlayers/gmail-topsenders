@@ -116,7 +116,11 @@ Place `credentials.json` in the same directory as the binary, then run:
 ./gmail-topsenders
 ```
 
-On first run the program prints an authorization URL. Open it in a browser and sign in with the Gmail account you added as a test user. After granting access, your browser will redirect to a page that won't load — this is expected. Copy the full URL from your browser's address bar and paste it into the terminal. The program extracts the authorization code from the URL automatically. The token is saved to `token.json` and reused on subsequent runs — you won't be asked again.
+On first run the program will open your browser automatically and prompt you to sign in with the Gmail account you added as a test user. After granting access, the program receives the authorization code in the background and continues — no manual steps needed.
+
+If the browser cannot be opened (e.g. on a remote server), the program falls back to printing an authorization URL. Open it manually, grant access, and paste the full redirect URL from your browser's address bar back into the terminal — the authorization code is extracted automatically.
+
+The token is saved to `token.json` and reused on subsequent runs — you won't be asked again.
 
 > **Note:** A full inbox scan can take a significant amount of time — anywhere from a few minutes to over an hour depending on the size of your mailbox and Gmail's API rate limits. Use `-query` to narrow the scan or `-cache` to avoid repeating it.
 

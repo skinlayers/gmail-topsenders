@@ -8,11 +8,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -334,6 +337,59 @@ func randomState() string {
 }
 
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
+	if tok, ok := autoOAuthFlow(config); ok {
+		return tok
+	}
+	fmt.Println("Could not open browser automatically — falling back to manual authorization.")
+	return manualOAuthFlow(config)
+}
+
+// autoOAuthFlow starts a local HTTP server, opens the browser, and captures
+// the authorization code from the redirect. Returns false if the browser
+// could not be opened or the flow times out (e.g. on a headless server).
+func autoOAuthFlow(config *oauth2.Config) (*oauth2.Token, bool) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, false
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	c := *config
+	c.RedirectURL = fmt.Sprintf("http://localhost:%d", port)
+
+	codeCh := make(chan string, 1)
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		code := r.URL.Query().Get("code")
+		if code == "" {
+			http.Error(w, "Missing code parameter", http.StatusBadRequest)
+			return
+		}
+		fmt.Fprintln(w, "<html><body><h2>Authorized! You can close this tab and return to the terminal.</h2></body></html>")
+		codeCh <- code
+	})}
+	go srv.Serve(listener) //nolint:errcheck
+	defer srv.Close()
+
+	authURL := c.AuthCodeURL(randomState(), oauth2.AccessTypeOffline)
+	if err := openBrowser(authURL); err != nil {
+		return nil, false
+	}
+	fmt.Println("Waiting for authorization in your browser...")
+
+	select {
+	case code := <-codeCh:
+		tok, err := c.Exchange(context.Background(), code)
+		if err != nil {
+			return nil, false
+		}
+		fmt.Println("Authorization successful!")
+		return tok, true
+	case <-time.After(2 * time.Minute):
+		return nil, false
+	}
+}
+
+func manualOAuthFlow(config *oauth2.Config) *oauth2.Token {
 	authURL := config.AuthCodeURL(randomState(), oauth2.AccessTypeOffline)
 	fmt.Printf("Open this URL in your browser:\n\n%v\n\n", authURL)
 	fmt.Println("After granting access, your browser will redirect to a page that won't load.")
@@ -344,7 +400,6 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 		log.Fatalf("Unable to read input: %v", err)
 	}
 
-	// Accept either the full redirect URL or just the code.
 	authCode := input
 	if u, err := url.Parse(input); err == nil {
 		if code := u.Query().Get("code"); code != "" {
@@ -357,6 +412,19 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 		log.Fatalf("Unable to retrieve token: %v", err)
 	}
 	return tok
+}
+
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Start()
 }
 
 func tokenFromFile(file string) (*oauth2.Token, error) {
