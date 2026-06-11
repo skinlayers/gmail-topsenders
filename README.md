@@ -1,6 +1,6 @@
 # gmail-topsenders
 
-Scans your entire Gmail inbox and reports which email addresses have sent you the most messages. Useful for identifying newsletters, notification senders, or contacts to unsubscribe from — and for spotting bulk senders whose emails you can select and delete in one go to reclaim inbox space.
+Scans your entire Gmail account and reports which email addresses have sent you the most messages. Useful for identifying newsletters, notification senders, or contacts to unsubscribe from — and for spotting bulk senders whose emails you can select and delete in one go to reclaim inbox space.
 
 ```
 --- TOP 50 SENDERS (84312 messages) ---
@@ -24,7 +24,7 @@ On first run it walks you through a one-time login flow to grant the program rea
 
 ## One-time Setup: Connecting to Gmail
 
-To read your Gmail, the program needs permission from Google. This is handled through **OAuth 2.0** — a standard login flow where you grant the app access via your browser, just like "Sign in with Google" on other websites. The program only requests **read-only** access; it cannot send, delete, or modify anything. **Your emails never leave your computer** — the program reads them locally and only stores a count per sender address.
+To read your Gmail, the program needs permission from Google. This is handled through **OAuth 2.0** — a standard login flow where you grant the app access via your browser, just like "Sign in with Google" on other websites. The program only requests **read-only** access; it cannot send, delete, or modify anything. **Your emails never leave your computer** — the program reads them locally and only stores a count and size estimate per sender address.
 
 The setup takes about 5 minutes and only needs to be done once. You'll need to create a free Google Cloud project to generate a `credentials.json` file that the program uses to identify itself to Google.
 
@@ -122,7 +122,7 @@ If the browser cannot be opened (e.g. on a remote server), the program falls bac
 
 The token is saved to `token.json` and reused on subsequent runs — you won't be asked again.
 
-> **Note:** A full inbox scan can take a significant amount of time — anywhere from a few minutes to over an hour depending on the size of your mailbox and Gmail's API rate limits. Use `-query` to narrow the scan or `-cache` to avoid repeating it.
+> **Note:** A full mailbox scan can take a significant amount of time — anywhere from a few minutes to over an hour depending on the size of your mailbox and Gmail's API rate limits. Use `-query` to narrow the scan or `-cache` to avoid repeating it.
 
 ### Flags
 
@@ -162,7 +162,7 @@ The token is saved to `token.json` and reused on subsequent runs — you won't b
 
 The cache stores the full sender counts (not just the filtered view), so you can freely change `-top`, `-min`, or `-sort-by` between cached runs. The `-query` value is recorded in the cache — if it changes between runs the cache is automatically invalidated, preventing stale results. The cache is written only on clean completion — an interrupted run does not overwrite a valid cache. The default cache file (`senders-cache.json`) is excluded from version control by `.gitignore`.
 
-The JSON file contains an array of `{"sender": "...", "count": N}` objects sorted by count descending, mirroring what is printed to stdout.
+The JSON file contains an array of `{"sender": "...", "count": N, "size": N}` objects sorted by the active `-sort-by` field, mirroring what is printed to stdout.
 
 You can interrupt the scan at any time with `Ctrl+C`; partial results are printed based on messages processed so far.
 
