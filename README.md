@@ -170,6 +170,16 @@ You can interrupt the scan at any time with `Ctrl+C`; partial results are printe
 | `token.json` | Cached OAuth token — created automatically on first run. |
 | `counts-cache.json` | Sender counts cache — created when `-cache` is used. Path overridable via `-cache-file`. |
 
+## Development
+
+```bash
+# Run all tests
+go test ./...
+
+# Run with verbose output
+go test -v ./...
+```
+
 ## Rate limits
 
 Gmail's API quota is 250 QPS per user. The program defaults to 200 QPS (override with `-qps`). Rate-limit (429) and other transient errors are retried up to 20 times with exponential backoff capped at ~32s per attempt — enough to weather any realistic API hiccup without skipping messages. Only permanent errors (e.g. a malformed message) are logged and skipped. Increasing `-workers` beyond ~10 is unlikely to speed things up since the bottleneck is the per-user quota, not local concurrency.
