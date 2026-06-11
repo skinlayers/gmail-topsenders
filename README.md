@@ -13,47 +13,56 @@ Completed in 4m32s
 
 ## How it works
 
-The program fetches all message IDs from the Gmail API, then uses a concurrent worker pool to pull the `From` header from each message. It respects Gmail's quota limits (200 QPS by default, configurable via `-qps`) with exponential backoff on errors, then prints the top senders sorted by count.
+The program connects to Gmail via Google's official API, fetches every message in your inbox, and counts how many times each sender appears. Results are sorted and printed to your terminal. It uses a pool of concurrent workers and stays within Gmail's API rate limits automatically.
 
-On first run it prints an authorization URL, waits for you to paste back the code from your browser, and caches the resulting token in `token.json`. Subsequent runs reuse the cached token.
+On first run it walks you through a one-time login flow to grant the program read-only access to your Gmail. The resulting token is saved locally and reused on subsequent runs — you won't be asked to log in again.
 
 ## Prerequisites
 
-- [Go](https://go.dev/dl/) 1.22 or later (go.mod requires 1.26.3)
-- A Google account and a Google Cloud project (free — no credit card or billing account required)
+- [Go](https://go.dev/dl/) 1.26.3 or later — only needed if building from source; precompiled binaries are available (see [Build](#build))
+- A Google account — the same one whose Gmail you want to scan
 
-## GCP OAuth 2.0 Setup
+## One-time Setup: Connecting to Gmail
 
-You need a `credentials.json` file from a Google Cloud project. If you don't have a Google Cloud account, you can create one for free at [console.cloud.google.com](https://console.cloud.google.com) — no credit card is required to create a project or use the Gmail API. Choose one of the two methods below.
+To read your Gmail, the program needs permission from Google. This is handled through **OAuth 2.0** — a standard login flow where you grant the app access via your browser, just like "Sign in with Google" on other websites. The program only requests **read-only** access; it cannot send, delete, or modify anything. **Your emails never leave your computer** — the program reads them locally and only stores a count per sender address.
+
+The setup takes about 5 minutes and only needs to be done once. You'll need to create a free Google Cloud project to generate a `credentials.json` file that the program uses to identify itself to Google.
+
+> **No credit card required.** Creating a Google Cloud project and using the Gmail API is completely free. You will not be asked for payment information.
 
 ---
 
-### Option A — Google Cloud Console (browser)
+### Option A — Google Cloud Console *(recommended)*
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project (or select an existing one).
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and sign in with your Google account. Create a new project when prompted (or select an existing one). You can name it anything — `gmail-topsenders` works well. ([Docs: creating a project](https://cloud.google.com/resource-manager/docs/creating-managing-projects))
 
 2. **Enable the Gmail API**
-   Navigate to **APIs & Services → Library**, search for **Gmail API**, and click **Enable**.
+   Navigate to **APIs & Services → Library**, search for **Gmail API**, and click **Enable**. ([Docs: enabling APIs](https://cloud.google.com/apis/docs/getting-started#enabling_an_api))
 
 3. **Configure the OAuth consent screen**
-   Go to **APIs & Services → OAuth consent screen**.
-   - Choose **External** user type and click **Create**. (Personal Google accounts only support External; Internal is available exclusively to Google Workspace organizations.)
-   - Fill in the required fields (App name, User support email, Developer contact email). For App name, `gmail-topsenders` works well. The values only matter for the consent screen you'll see during login.
-   - Click **Save and Continue** through the Scopes and Optional Info steps — no additional scopes need to be added here.
-   - On the **Test users** step, click **Add Users**, enter your Gmail address, and click **Save**. This is required while the app is in *Testing* status; only listed addresses can authorize it.
-   - Click **Back to Dashboard**. There is no need to publish the app — keeping it in *Testing* is intentional. Publishing requires a Google verification process that is only relevant for apps distributed to other users; for personal use, *Testing* works indefinitely.
+
+   This is the screen you'll see when you log in the first time. Go to **APIs & Services → OAuth consent screen**. ([Docs: configuring the consent screen](https://developers.google.com/workspace/guides/configure-oauth-consent))
+   - Choose **External** user type and click **Create**. (Personal Google accounts only support External — this is normal.)
+   - Fill in the required fields: **App name** (`gmail-topsenders`), **User support email**, and **Developer contact email**. These values only appear on the consent screen you'll see during login.
+   - Click **Save and Continue** through the Scopes and Optional Info steps — no changes needed on those pages.
+   - On the **Test users** step, click **Add Users**, enter your Gmail address, and click **Save**. This allows your account to authorise the app while it remains in *Testing* status.
+   - Click **Back to Dashboard**. There is no need to publish the app — keeping it in *Testing* is intentional and works indefinitely for personal use. Publishing would trigger a Google review process only relevant for apps distributed to others.
 
 4. **Create an OAuth 2.0 client**
-   Go to **APIs & Services → Credentials** and click **Create Credentials → OAuth client ID**.
+
+   Go to **APIs & Services → Credentials** and click **Create Credentials → OAuth client ID**. ([Docs: creating credentials](https://developers.google.com/workspace/guides/create-credentials))
    - Application type: **Desktop app**
    - Give it a name (e.g. `gmail-topsenders`) and click **Create**.
 
-5. **Download the credentials**
-   Click the download icon next to the client you just created. Save the file as `credentials.json` in the same directory as `main.go`.
+5. **Download the credentials file**
+
+   Click the download icon next to the client you just created. Save the file as `credentials.json` in the same directory as the `gmail-topsenders` binary.
 
 ---
 
-### Option B — gcloud CLI
+### Option B — gcloud CLI *(advanced)*
+
+If you have the [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed, you can complete most of the setup from the terminal. The OAuth client creation and test user steps still require the Cloud Console.
 
 ```bash
 # Authenticate with your Google account
@@ -72,28 +81,32 @@ gcloud alpha iap oauth-brands create \
   --support_email=$(gcloud config get-value account)
 ```
 
-> **Note:** The gcloud CLI has limited support for managing OAuth clients and test users directly. For these two steps it is easiest to use the Cloud Console:
->
-> - **Create the OAuth client:** **APIs & Services → Credentials → Create Credentials → OAuth client ID → Desktop app**, then download `credentials.json`.
-> - **Add your test user:** **APIs & Services → OAuth consent screen → Test users → Add Users**, enter your Gmail address, and save.
+Then finish up in the Cloud Console:
+- **Create the OAuth client:** **APIs & Services → Credentials → Create Credentials → OAuth client ID → Desktop app**, then download `credentials.json`.
+- **Add your test user:** **APIs & Services → OAuth consent screen → Test users → Add Users**, enter your Gmail address, and save.
 
 ---
 
 ## Build
 
-Clone the repo and build with Go:
+### Precompiled releases *(easiest)*
+
+Download the latest binary for your platform from the [Releases](https://github.com/skinlayers/gmail-topsenders/releases) page. No Go installation required.
+
+```bash
+# macOS / Linux — make the binary executable after downloading
+chmod +x gmail-topsenders
+```
+
+On macOS you may need to allow the binary in **System Settings → Privacy & Security** the first time you run it, since it is not notarized.
+
+### Build from source
 
 ```bash
 git clone https://github.com/skinlayers/gmail-topsenders
 cd gmail-topsenders
 go build -o gmail-topsenders .
 ```
-
-### Precompiled releases
-
-Download the latest binary for your platform from the [Releases](https://github.com/skinlayers/gmail-topsenders/releases) page. No Go installation required.
-
-On macOS you may need to allow the binary in **System Settings → Privacy & Security** the first time you run it, since it is not notarized.
 
 ## Usage
 
@@ -105,6 +118,8 @@ Place `credentials.json` in the same directory as the binary, then run:
 
 On first run the program prints an authorization URL. Open it in a browser, sign in with the Gmail account you added as a test user, grant access, and paste the authorization code back into the terminal. The token is saved to `token.json` and reused on subsequent runs.
 
+> **Note:** A full inbox scan can take a significant amount of time — anywhere from a few minutes to over an hour depending on the size of your mailbox and Gmail's API rate limits. Use `-query` to narrow the scan or `-cache` to avoid repeating it.
+
 ### Flags
 
 | Flag | Default | Description |
@@ -113,9 +128,10 @@ On first run the program prints an authorization URL. Open it in a browser, sign
 | `-top` | `50` | Number of top senders to display (ignored when `-min` is set) |
 | `-min` | _(none)_ | Show all senders with at least this many emails (overrides `-top`) |
 | `-output` | _(none)_ | Path to write results as a JSON file (e.g. `results.json`) |
+| `-query` | _(none)_ | Gmail search query to filter messages (e.g. `in:inbox`, `after:2024/01/01`) |
 | `-cache` | `false` | Cache the raw sender counts locally and reuse them on subsequent runs if fresh |
-| `-cache-ttl` | `1h` | How long a cache file is considered fresh (e.g. `30m`, `2h`) |
-| `-cache-file` | `counts-cache.json` | Path to the cache file |
+| `-cache-ttl` | `1h` | How long a cache file is considered fresh (e.g. `30m`, `2h`); implies `-cache` |
+| `-cache-file` | `counts-cache.json` | Path to the cache file; implies `-cache` |
 | `-qps` | `200` | Maximum Gmail API requests per second (hard quota is 250 QPS) |
 
 ```bash
@@ -124,6 +140,9 @@ On first run the program prints an authorization URL. Open it in a browser, sign
 
 # Show every sender with 10 or more emails
 ./gmail-topsenders -min 10
+
+# Only scan inbox messages from 2024 onwards
+./gmail-topsenders -query "in:inbox after:2024/01/01"
 
 # Save results to a file
 ./gmail-topsenders -min 10 -output results.json
@@ -150,3 +169,5 @@ You can interrupt the scan at any time with `Ctrl+C`; partial results are printe
 ## Rate limits
 
 Gmail's API quota is 250 QPS per user. The program defaults to 200 QPS (override with `-qps`). Rate-limit (429) and other transient errors are retried up to 20 times with exponential backoff capped at ~32s per attempt — enough to weather any realistic API hiccup without skipping messages. Only permanent errors (e.g. a malformed message) are logged and skipped. Increasing `-workers` beyond ~10 is unlikely to speed things up since the bottleneck is the per-user quota, not local concurrency.
+
+At 200 QPS, processing 50,000 messages takes roughly 4–5 minutes; 200,000 messages can take 15–20 minutes. Use `-query` to narrow the scan (e.g. `after:2024/01/01`) or `-cache` to avoid repeating it.
