@@ -130,7 +130,7 @@ The token is saved to `token.json` and reused on subsequent runs — you won't b
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-workers` | `4` | Number of concurrent workers fetching message headers |
+| `-workers` | `6` | Number of concurrent workers fetching message headers |
 | `-top` | `50` | Number of top senders to display (ignored when `-min` is set) |
 | `-min` | _(none)_ | Show all senders with at least this many emails (overrides `-top`) |
 | `-output` | _(none)_ | Path to write results as a JSON file (e.g. `results.json`) |
@@ -194,14 +194,16 @@ golangci-lint run ./...
 
 Gmail's API quota is 250 QPS per user. The program defaults to 200 QPS (override with `-qps`). Rate-limit (429) and other transient errors are retried up to 20 times with exponential backoff capped at ~32s per attempt — enough to weather any realistic API hiccup without skipping messages. Only permanent errors (e.g. a malformed message) are logged and skipped.
 
-In practice, throughput is limited by `workers × (1 / network latency)` rather than the API quota. At the default 4 workers and typical ~100ms latency, expect roughly 40 messages/second. Increasing `-workers` proportionally improves throughput until the per-user quota becomes the ceiling at around 20+ workers.
+In practice, throughput is dominated by per-request network latency rather than the API quota, so increasing `-workers` helps — but with diminishing returns. Real-world testing showed a clear jump from 4 to 6 workers (~41 → ~53 messages/second), but little further improvement from 6 to 16 workers (all in the ~50–58 messages/second range). The default of 6 workers captures most of the available speedup; raising it further is unlikely to help much unless you're on an unusually low-latency connection.
+
+`-qps` acts as a hard ceiling: at the default 6 workers, the natural throughput (~50–58 messages/second) stays comfortably under the default 200 QPS, so `-qps` has no effect at default settings. If you deliberately lower it below your natural throughput, the scan slows down almost exactly proportionally — e.g. `-qps 10` ran at ~9.9 messages/second, taking roughly 10x as long. This makes `-qps` a predictable way to go easy on a shared quota (expect total time ≈ messages / qps once below the natural ceiling). Avoid setting it to exactly 250 (the hard quota) — testing with zero margin was slower than backing off slightly, likely due to occasional 429s and retries.
 
 With the default settings, expect roughly:
 
 | Messages | Time |
 |----------|------|
-| 50,000 | ~20 min |
-| 100,000 | ~40 min |
-| 200,000 | ~80 min |
+| 50,000 | ~17 min |
+| 100,000 | ~33 min |
+| 200,000 | ~65 min |
 
-Use `-query` to narrow the scan (e.g. `after:2024/01/01`), `-workers` to speed it up, or `-cache` to avoid repeating it.
+Use `-query` to narrow the scan (e.g. `after:2024/01/01`) or `-cache` to avoid repeating it.

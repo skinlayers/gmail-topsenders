@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	DefaultWorkerCount = 4
+	DefaultWorkerCount = 6
 	MaxRetries         = 5
 	InitialBackoff     = 500 * time.Millisecond
 	RequestsPerSec     = 200 // quota is 250 QPS; stay under with margin
